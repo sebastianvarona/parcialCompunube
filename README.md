@@ -7,6 +7,11 @@ vagrant up
 vagrant ssh servidorWeb
 ```
 
+## Run the webApp with Docker Compose
+```
+sudo docker compose up -d --build
+```
+
 ## Run the webApp
 
 ```
