@@ -1,5 +1,7 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify
 from flask_cors import CORS
+import os
+import consul
 
 app = Flask(__name__)
 app.secret_key = 'secret123'
@@ -46,5 +48,36 @@ def edit_order(id):
     print("id recibido",id)
     return render_template('editOrder.html', id=id)
 
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'healthy'}), 200
+
+# Register with Consul
+def register_frontend():
+    """Register frontend service with Consul"""
+    consul_host = os.environ.get('CONSUL_HOST', 'consul')
+    consul_port = int(os.environ.get('CONSUL_PORT', 8500))
+
+    try:
+        c = consul.Consul(host=consul_host, port=consul_port)
+        c.agent.service.register(
+            'frontend',
+            service_id='frontend-5001',
+            port=5001,
+            check={
+                'http': 'http://frontend:5001/health',
+                'interval': '10s',
+                'timeout': '5s',
+                'deregister_critical_service_after': '30s'
+            }
+        )
+        print("Frontend registered with Consul")
+    except Exception as e:
+        print(f"Could not register with Consul: {e}")
+
 if __name__ == '__main__':
-    app.run()
+    try:
+        register_frontend()
+    except Exception as e:
+        print(f"Consul registration failed: {e}")
+    app.run(host='0.0.0.0', port=5001)

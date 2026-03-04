@@ -1,0 +1,165 @@
+services:
+  # Consul for service discovery
+  consul:
+    image: consul:1.15
+    container_name: consul
+    ports:
+      - "8500:8500"
+    networks:
+      - app-network
+
+  # MySQL for users
+  mysql_users:
+    image: mysql:8.0
+    container_name: mysql_users
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_users_data:/var/lib/mysql
+      - ./init_users.sql:/docker-entrypoint-initdb.d/init_users.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MySQL for products
+  mysql_products:
+    image: mysql:8.0
+    container_name: mysql_products
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_products_data:/var/lib/mysql
+      - ./init_products.sql:/docker-entrypoint-initdb.d/init_products.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MySQL for orders
+  mysql_orders:
+    image: mysql:8.0
+    container_name: mysql_orders
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql_orders_data:/var/lib/mysql
+      - ./init_orders.sql:/docker-entrypoint-initdb.d/init_orders.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: microapp-frontend
+    container_name: frontend
+    ports:
+      - "5005:5001"
+    networks:
+      - app-network
+    depends_on:
+      - microUsers
+      - microProducts
+      - microOrders
+
+  # microUsers service
+  microUsers:
+    build:
+      context: .
+      dockerfile: Dockerfile.microUsers
+    image: microapp-microusers
+    container_name: microusers
+    ports:
+      - "5002:5002"
+    environment:
+      - MYSQL_HOST=mysql_users
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=root
+      - MYSQL_DB=myflaskapp_users
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+    networks:
+      - app-network
+    depends_on:
+      mysql_users:
+        condition: service_healthy
+      consul:
+        condition: service_started
+
+  # microProducts service
+  microProducts:
+    build:
+      context: .
+      dockerfile: Dockerfile.microProducts
+    image: microapp-microproducts
+    container_name: microproducts
+    ports:
+      - "5003:5003"
+    environment:
+      - MYSQL_HOST=mysql_products
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=root
+      - MYSQL_DB=myflaskapp_products
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+    networks:
+      - app-network
+    depends_on:
+      mysql_products:
+        condition: service_healthy
+      consul:
+        condition: service_started
+
+  # microOrders service
+  microOrders:
+    build:
+      context: .
+      dockerfile: Dockerfile.microOrders
+    image: microapp-microorders
+    container_name: microorders
+    ports:
+      - "5004:5004"
+    environment:
+      - MYSQL_HOST=mysql_orders
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=root
+      - MYSQL_DB=myflaskapp_orders
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+    networks:
+      - app-network
+    depends_on:
+      mysql_orders:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      microProducts:
+        condition: service_started
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mysql_users_data:
+  mysql_products_data:
+  mysql_orders_data:

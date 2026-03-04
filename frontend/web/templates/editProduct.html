@@ -38,7 +38,7 @@
     //const productId = urlParams.get('id');
     const productId = {{id}}    
     // Obtener la información del usuario y llenar el formulario
-    fetch(`http://192.168.80.3:5003/api/products/${productId}`)
+    fetch(`http://192.168.1.81:5003/api/products/${productId}`)
         .then(response => response.json())
         .then(data => {
             document.getElementById('product-id').value = data.id;
